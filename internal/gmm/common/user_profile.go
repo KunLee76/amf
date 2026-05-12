@@ -4,6 +4,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	business_metrics "github.com/free5gc/amf/internal/metrics/business"
+	"github.com/free5gc/amf/internal/monitor"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/ngap/ngapType"
@@ -11,6 +12,24 @@ import (
 )
 
 func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
+	event := monitor.AMFEvent{
+		Layer:         "context_lifecycle",
+		EventType:     "AMF_UE_CONTEXT_DELETE",
+		Supi:          ue.Supi,
+		Guti:          ue.Guti,
+		Procedure:     "RemoveAmfUe",
+		ContextAction: "delete",
+		SourceFile:    "internal/gmm/common/user_profile.go",
+	}
+	if ranUe := ue.RanUe[models.AccessType__3_GPP_ACCESS]; ranUe != nil {
+		event.RanUeNgapId = ranUe.RanUeNgapId
+		event.AmfUeNgapId = ranUe.AmfUeNgapId
+	} else if ranUe := ue.RanUe[models.AccessType_NON_3_GPP_ACCESS]; ranUe != nil {
+		event.RanUeNgapId = ranUe.RanUeNgapId
+		event.AmfUeNgapId = ranUe.AmfUeNgapId
+	}
+	_ = monitor.RecordEvent(event)
+
 	if notifyNF {
 		// notify SMF to release all sessions
 		ue.SmContextList.Range(func(key, value interface{}) bool {

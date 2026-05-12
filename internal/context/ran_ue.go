@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/monitor"
 	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
@@ -79,6 +80,21 @@ func (ranUe *RanUe) Remove() error {
 	if ran == nil {
 		return fmt.Errorf("RanUe not found in Ran")
 	}
+	event := monitor.AMFEvent{
+		Layer:         "context_lifecycle",
+		EventType:     "RAN_UE_CONTEXT_RELEASE",
+		RanUeNgapId:   ranUe.RanUeNgapId,
+		AmfUeNgapId:   ranUe.AmfUeNgapId,
+		Procedure:     "RanUe.Remove",
+		ContextAction: "release",
+		SourceFile:    "internal/context/ran_ue.go",
+	}
+	if ranUe.AmfUe != nil {
+		event.Supi = ranUe.AmfUe.Supi
+		event.Guti = ranUe.AmfUe.Guti
+	}
+	_ = monitor.RecordEvent(event)
+
 	if ranUe.AmfUe != nil {
 		ranUe.AmfUe.DetachRanUe(ran.AnType)
 		ranUe.DetachAmfUe()

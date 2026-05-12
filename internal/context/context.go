@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/monitor"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas/nasConvert"
 	"github.com/free5gc/nas/security"
@@ -221,6 +222,15 @@ func (context *AMFContext) AllocateGutiToUe(ue *AmfUe) {
 	plmnID := servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc
 	tmsiStr := fmt.Sprintf("%08x", ue.Tmsi)
 	ue.Guti = plmnID + servedGuami.AmfId + tmsiStr
+	_ = monitor.RecordEvent(monitor.AMFEvent{
+		Layer:         "context_lifecycle",
+		EventType:     "GUTI_ASSOCIATED",
+		Supi:          ue.Supi,
+		Guti:          ue.Guti,
+		Procedure:     "AMFContext.AllocateGutiToUe",
+		ContextAction: "update",
+		SourceFile:    "internal/context/context.go",
+	})
 }
 
 func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.AccessType) {
@@ -301,11 +311,28 @@ func (context *AMFContext) AddAmfUeToUePool(ue *AmfUe, supi string) {
 	}
 	ue.Supi = supi
 	context.UePool.Store(ue.Supi, ue)
+	_ = monitor.RecordEvent(monitor.AMFEvent{
+		Layer:         "context_lifecycle",
+		EventType:     "SUPI_ASSOCIATED",
+		Supi:          ue.Supi,
+		Guti:          ue.Guti,
+		Procedure:     "AMFContext.AddAmfUeToUePool",
+		ContextAction: "update",
+		SourceFile:    "internal/context/context.go",
+	})
 }
 
 func (context *AMFContext) NewAmfUe(supi string) *AmfUe {
 	ue := AmfUe{}
 	ue.init()
+	_ = monitor.RecordEvent(monitor.AMFEvent{
+		Layer:         "context_lifecycle",
+		EventType:     "AMF_UE_CONTEXT_CREATE",
+		Supi:          supi,
+		Procedure:     "AMFContext.NewAmfUe",
+		ContextAction: "create",
+		SourceFile:    "internal/context/context.go",
+	})
 
 	if supi != "" {
 		context.AddAmfUeToUePool(&ue, supi)

@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/monitor"
 	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
@@ -76,6 +77,15 @@ func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 	}
 	self.RanUePool.Store(ranUe.AmfUeNgapId, &ranUe)
 	ranUe.Log.Infof("New RanUe [RanUeNgapID:%d][AmfUeNgapID:%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+	_ = monitor.RecordEvent(monitor.AMFEvent{
+		Layer:         "context_lifecycle",
+		EventType:     "RAN_UE_CONTEXT_CREATE",
+		RanUeNgapId:   ranUe.RanUeNgapId,
+		AmfUeNgapId:   ranUe.AmfUeNgapId,
+		Procedure:     "AmfRan.NewRanUe",
+		ContextAction: "create",
+		SourceFile:    "internal/context/amf_ran.go",
+	})
 	return &ranUe, nil
 }
 
