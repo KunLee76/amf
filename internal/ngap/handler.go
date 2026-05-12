@@ -10,6 +10,7 @@ import (
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	business_metrics "github.com/free5gc/amf/internal/metrics/business"
+	"github.com/free5gc/amf/internal/monitor"
 	amf_nas "github.com/free5gc/amf/internal/nas"
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
@@ -128,6 +129,17 @@ func handleUplinkNASTransportMain(ran *context.AmfRan,
 			ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
 		return
 	}
+
+	_ = monitor.RecordEvent(monitor.AMFEvent{
+		Layer:       "ngap_ingress",
+		EventType:   "NGAP_UPLINK_NAS_TRANSPORT",
+		Supi:        amfUe.Supi,
+		Guti:        amfUe.Guti,
+		RanUeNgapId: ranUe.RanUeNgapId,
+		AmfUeNgapId: ranUe.AmfUeNgapId,
+		Procedure:   "handleUplinkNASTransportMain",
+		SourceFile:  "internal/ngap/handler.go",
+	})
 
 	if userLocationInformation != nil {
 		ranUe.UpdateLocation(userLocationInformation)
@@ -459,6 +471,15 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		ran.Log.Errorf("NewRanUe Error: %+v", err)
 	}
 	ran.Log.Debugf("New RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
+
+	_ = monitor.RecordEvent(monitor.AMFEvent{
+		Layer:       "ngap_ingress",
+		EventType:   "NGAP_INITIAL_UE_MESSAGE",
+		RanUeNgapId: ranUe.RanUeNgapId,
+		AmfUeNgapId: ranUe.AmfUeNgapId,
+		Procedure:   "handleInitialUEMessageMain",
+		SourceFile:  "internal/ngap/handler.go",
+	})
 
 	// Try to get identity from 5G-S-TMSI IE first; if not available, try to get identity from the plain NAS.
 	var id, idType string

@@ -19,6 +19,7 @@ import (
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/monitor"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
@@ -39,6 +40,28 @@ import (
 )
 
 const psiArraySize = 16
+
+func newUEProcedureEvent(ue *context.AmfUe, accessType models.AccessType, eventType, procedure string) monitor.AMFEvent {
+	event := monitor.AMFEvent{
+		Layer:      "ue_procedure",
+		EventType:  eventType,
+		Procedure:  procedure,
+		SourceFile: "internal/gmm/handler.go",
+	}
+	if ue == nil {
+		return event
+	}
+
+	event.Supi = ue.Supi
+	event.Guti = ue.Guti
+
+	if ranUe := ue.RanUe[accessType]; ranUe != nil {
+		event.RanUeNgapId = ranUe.RanUeNgapId
+		event.AmfUeNgapId = ranUe.AmfUeNgapId
+	}
+
+	return event
+}
 
 func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType,
 	ulNasTransport *nasMessage.ULNASTransport,
@@ -184,6 +207,9 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 			// case iii) if the AMF does not have a PDU session routing context for the PDU session ID and the UE
 			// and the Request type IE is included and is set to "initial request"
 			case nasMessage.ULNASTransportRequestTypeInitialRequest:
+				event := newUEProcedureEvent(ue, anType, "PDU_SESSION_ESTABLISHMENT_REQUEST", "transport5GSMMessage")
+				event.PduSessionId = pduSessionID
+				_ = monitor.RecordEvent(event)
 				_, err := CreatePDUSession(ulNasTransport, ue, anType, pduSessionID, smMessage)
 				return err
 			case nasMessage.ULNASTransportRequestTypeModificationRequest:
@@ -392,6 +418,13 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	if ue.RanUe[anType] == nil {
 		return fmt.Errorf("RanUe is nil")
 	}
+
+	event := newUEProcedureEvent(ue, anType, "REGISTRATION_REQUEST", "HandleRegistrationRequest")
+	if registrationRequest != nil {
+		event.Note = fmt.Sprintf("registration_type=%d",
+			registrationRequest.NgksiAndRegistrationType5GS.GetRegistrationType5GS())
+	}
+	_ = monitor.RecordEvent(event)
 
 	ue.SetOnGoing(anType, &context.OnGoing{
 		Procedure: context.OnGoingProcedureRegistration,
@@ -2238,6 +2271,9 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Registration Complete")
 
+	_ = monitor.RecordEvent(newUEProcedureEvent(
+		ue, accessType, "REGISTRATION_COMPLETE", "HandleRegistrationComplete"))
+
 	if ue.T3550 == nil {
 		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
 	}
@@ -2368,6 +2404,9 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 	deregistrationRequest *nasMessage.DeregistrationRequestUEOriginatingDeregistration,
 ) error {
 	ue.GmmLog.Info("Handle Deregistration Request(UE Originating)")
+
+	_ = monitor.RecordEvent(newUEProcedureEvent(
+		ue, anType, "DEREGISTRATION_REQUEST", "HandleDeregistrationRequest"))
 
 	targetDeregistrationAccessType := deregistrationRequest.GetAccessType()
 	ue.SmContextList.Range(func(key, value interface{}) bool {
